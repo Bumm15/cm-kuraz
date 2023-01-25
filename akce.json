@@ -1,0 +1,25 @@
+{
+  "akce": [
+    {
+      "id": 1,
+      "name": "Ahoj",
+      "date": "25.01.2023",
+      "time": "18:00",
+      "place": "Liptál"
+    },
+    {
+      "id": 2,
+      "name": "Neco",
+      "date": "24.01.2023",
+      "time": "18:00",
+      "place": "Liptál"
+    },
+    {
+      "name": "ahoj",
+      "place": "ahoj",
+      "date": "19.01.2023",
+      "time": "22:17",
+      "id": 3
+    }
+  ]
+}

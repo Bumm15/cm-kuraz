@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { Alert, Form, Table, Card, Button } from "react-bootstrap"
 import { AkceRow } from "./AkceRow";
+import { db } from "./firebase-config";
+import { uid } from "uid";
+import { onValue, ref, remove, set } from "firebase/database";
 
 
 export function Calender() {
@@ -20,26 +23,21 @@ export function Calender() {
     const timeRef = useRef();
 
     //request data
-    function requestData() {
+    const requestData = () => {
         setError(false)
         setLoading(true)
-
-        fetch("https://api.jsonbin.io/v3/b/63d12c11ace6f33a22c7b8de?meta=false", {
-            headers: {
-                "X-Master-Key": "$2b$10$VmBbxTWqGDqdozGe6KXpfOyD9IWAA77BaVXjHIIrDBQ9jbBl.6x5G"
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log(data["akce"])
-            setData(data["akce"].sort((a, b) => new Date(b.date) - new Date(a.date)))
-            setLoading(false)
-        })
-        .catch(error => {
+        try {
+            onValue(ref(db), snapshot => {
+                const data = snapshot.val()
+                if(data !== null){
+                    setData(Object.values(data))
+                }
+            })
+        } catch (error) {
             setError(true)
             console.log(error)
-            setLoading(false)
-        })
+        }
+        setLoading(false)
     }
 
     useEffect(() => {
@@ -47,59 +45,52 @@ export function Calender() {
     }, [])
 
     //adding data to json
-    function addData(e) {
+    const writeToDatabase = (e) => {
         e.preventDefault();
-        setErrMsg(false);
         setSuccess(false)
-        //preventing multiple requests by disabling button
-        setSendingData(true);
+        setErrMsg(false)
+        const uuid = uid()
 
         var betterDate = dateRef.current.value.split("-").reverse().join(".");
 
         const formData = {
+            id: uuid,
             name: nameRef.current.value,
             place: placeRef.current.value,
             date: betterDate,
             time: timeRef.current.value
         }
+        console.log(formData)
+        try {
+            set(ref(db, `/${uuid}`), formData)
+        } catch(err) {
+            console.log(err)
+            setErrMsg(true)
+        }
+        setSuccess(true)
 
-        console.log(JSON.stringify(formData))
-
-        //post data
-        fetch("https://api.jsonbin.io/v3/b/63d12c11ace6f33a22c7b8de?meta=false", {
-            method: "POST",
-            headers: {'Content-Type': 'application/json',
-            "X-Master-Key": "$2b$10$VmBbxTWqGDqdozGe6KXpfOyD9IWAA77BaVXjHIIrDBQ9jbBl.6x5G"},
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(response => {
-            console.log(response)
-            setSendingData(false)
-            setSuccess(true)
-            requestData()
-        })
-        .catch(error =>
-            {
-                console.log(error)
-                setError(true)
-            })
+        nameRef.current.value = ""
+        placeRef.current.value = ""
+        dateRef.current.value = ""
+        timeRef.current.value = ""
 
     }
 
+    //CIMBÁLKA JE NEJLEPŠÍ <333333
+
     //update json file with fetch.. meh :(
     const removeFromAkceByName = (id) => {
+        setSendingData(true)
         setError(false)
+        try {
+            remove(ref(db, `/${id}`))
+            setSendingData(false)
+        } catch (error) {
+            console.log(error)
+            setError(true)
+        }
+        requestData()
 
-        // set data to the new json
-        setData(data.filter(item => item.id !== id))
-        console.log(data)
-        
-        fetch("https://my-json-server.typicode.com/Bumm15/cm-kuraz/akce/"+id, {
-            method: "DELETE"
-        })
-        .then(res => res.json())
-        .then(res => console.log(res))
     }
     
     return(
@@ -127,8 +118,11 @@ export function Calender() {
                 {data.map((akce, index) => (<AkceRow key={index} {...akce} callback={removeFromAkceByName}/>))}
                 </tbody>
             </Table>
-            {loading &&
-                <p>Načítání dat</p>}
+
+            {loading ? 
+                <p>Načítání dat</p>
+            :
+                <p className="text-muted "><small>Po kliknutí na odstranit, restartuj stránku pro zobrazení změn, z nějakého neznámeho důvodu to nědělá samo</small></p>}
             <br />
             <div className="d-flex mx-auto col-md-6 mb-4">
             <Card style={{width: "50rem"}}>
@@ -139,7 +133,7 @@ export function Calender() {
             <Alert variant="danger">Akce se nepodařila přidat</Alert>}
             <Card.Body>
                 <h2 className="text-center">Přidání akce:</h2>
-                <Form onSubmit={addData}>
+                <Form onSubmit={writeToDatabase}>
                     <Form.Group id="name">
                         <Form.Label>Název</Form.Label>
                         <Form.Control type="text" ref={nameRef}  placeholder="Zadej název.." required />
